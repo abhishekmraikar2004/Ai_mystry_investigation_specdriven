@@ -1,0 +1,16 @@
+{
+  "name": "ai-mystery-room",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": ["apps/*", "packages/*"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c yellow,cyan \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "npm --workspace @mystery/api run dev",
+    "dev:web": "npm --workspace @mystery/web run dev",
+    "build": "npm run typecheck && npm --workspace @mystery/web run build",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "start": "npm --workspace @mystery/api start"
+  },
+  "devDependencies": { "concurrently": "^9.1.2", "typescript": "^5.7.3" }
+}

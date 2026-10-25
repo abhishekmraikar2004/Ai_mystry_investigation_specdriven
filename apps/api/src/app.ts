@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import rateLimit from 'express-rate-limit';
 import mongoose from 'mongoose';
+import { fileURLToPath } from 'node:url';
 import { accusationSchema, createCaseSchema, type PublicCase } from '@mystery/shared';
 import { CaseModel, type CaseRecord } from './model.js';
 import { generateMystery, validateMystery } from './generator.js';
@@ -74,7 +75,7 @@ app.get('/api/v1/cases/:caseId/status', authorized, (req, res) => {
 });
 function publicView(c: CaseRecord): PublicCase {
   const m = c.mystery;
-  return { title: m.title, premise: m.premise, setting: m.setting, incidentTimestamp: m.incidentTimestamp, difficulty: m.difficulty, caseLength: m.caseLength, suspects: m.suspects, evidence: m.evidence.map(e => ({ ...e, content: undefined })), hintsRemaining: Math.max(0, 3 - c.progress.hintsUsed), openedEvidenceIds: c.progress.openedEvidenceIds, hintsUsed: c.progress.hintsUsed, accusationSubmitted: Boolean(c.accusation?.suspectId) } as PublicCase;
+  return { title: m.title, premise: m.premise, setting: m.setting, incidentTimestamp: m.incidentTimestamp, difficulty: m.difficulty, caseLength: m.caseLength, suspects: m.suspects, evidence: m.evidence.map(e => ({ ...e, content: undefined })), hintsRemaining: Math.max(0, 3 - c.progress.hintsUsed), openedEvidenceIds: c.progress.openedEvidenceIds, hintsUsed: c.progress.hintsUsed, accusationSubmitted: Boolean(c.accusation?.suspectId) } as unknown as PublicCase;
 }
 app.get('/api/v1/cases/:caseId', authorized, (req, res) => { const c = (req as AuthedRequest).mysteryCase; if (!['ready', 'completed'].includes(c.status)) return fail(res, 409, 'CASE_NOT_READY', 'This case is not ready yet.'); res.json({ case: publicView(c), result: c.accusation?.suspectId ? resultDto(c) : null }); });
 app.get('/api/v1/cases/:caseId/evidence/:evidenceId', authorized, async (req, res) => {
@@ -108,6 +109,10 @@ app.post('/api/v1/cases/:caseId/accusation', authorized, async (req, res) => {
   if (!updated) return fail(res, 409, 'ACCUSATION_ALREADY_SUBMITTED', 'A final accusation has already been recorded.');
   res.json(resultDto(updated));
 });
+app.use('/api', (_req, res) => fail(res, 404, 'NOT_FOUND', 'That API route could not be found.'));
+const webDist = fileURLToPath(new URL('../../web/dist', import.meta.url));
+app.use(express.static(webDist, { index: false, maxAge: process.env.NODE_ENV === 'production' ? '1y' : 0, immutable: process.env.NODE_ENV === 'production' }));
+app.get('*', (_req, res, next) => res.sendFile(fileURLToPath(new URL('../../web/dist/index.html', import.meta.url)), error => { if (error) next(); }));
 app.use((_req, res) => fail(res, 404, 'NOT_FOUND', 'That page could not be found.'));
 app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => { console.error('API error:', error instanceof Error ? error.message : error); fail(res, 500, 'INTERNAL_ERROR', 'Something went wrong. Please try again.'); });
 export default app;
